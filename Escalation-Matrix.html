@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escalation Matrix Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --secondary-bg-color: #ffffff;
+            --text-color: #0f172a;
+            --subtle-text-color: #64748b;
+            --border-color: #e2e8f0;
+            --primary-color: #4f46e5;
+            --primary-hover-color: #4338ca;
+            --gm-bg: rgba(16, 185, 129, 0.07);
+            --gm-border: #10b981;
+            --dh-bg: rgba(239, 68, 68, 0.07);
+            --dh-border: #ef4444;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -4px rgba(0, 0, 0, 0.07);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #020617;
+            --secondary-bg-color: #0f172a;
+            --text-color: #e2e8f0;
+            --subtle-text-color: #94a3b8;
+            --border-color: #334155;
+            --primary-color: #818cf8;
+            --primary-hover-color: #6366f1;
+            --gm-bg: rgba(52, 211, 153, 0.1);
+            --gm-border: #34d399;
+            --dh-bg: rgba(248, 113, 113, 0.1);
+            --dh-border: #f87171;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -2px rgba(0, 0, 0, 0.15);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -4px rgba(0, 0, 0, 0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+            padding-bottom: 5rem; /* Space for the fixed footer */
+        }
+
+        .container {
+            max-width: 95%;
+            margin: 2rem auto 0 auto;
+            padding: 1rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 0 1rem;
+        }
+        .header-title h1 { font-size: 2.25rem; font-weight: 700; }
+        .header-title p { font-size: 1.1rem; color: var(--subtle-text-color); margin-top: 0.25rem; }
+        
+        .theme-toggle {
+            background-color: var(--secondary-bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem; width: 48px; height: 48px;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            box-shadow: var(--shadow); transition: all 0.2s;
+        }
+        .theme-toggle:hover { transform: scale(1.05); border-color: var(--primary-color); }
+        .theme-toggle svg { color: var(--subtle-text-color); }
+        .theme-toggle .icon-sun { display: none; }
+        [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+        [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+        .card {
+            background-color: var(--secondary-bg-color);
+            border-radius: 1.25rem;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+            padding: 2rem 2.5rem;
+            transition: background-color 0.3s, border-color 0.3s;
+            overflow: hidden;
+        }
+        
+        .toolbar {
+            display: flex; flex-wrap: wrap; justify-content: space-between;
+            align-items: center; gap: 1.5rem; margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .filter-controls { display: flex; flex-grow: 1; gap: 1rem; }
+        
+        #categoryFilter, #searchInput {
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .search-container { flex-grow: 1; position: relative; }
+        #searchInput {
+            padding-left: 2.75rem;
+        }
+
+        #categoryFilter:hover, #searchInput:hover {
+            border-color: color-mix(in srgb, var(--subtle-text-color) 50%, transparent);
+        }
+
+        #categoryFilter:focus, #searchInput:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background-color: var(--secondary-bg-color);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color) 20%, transparent);
+        }
+        
+        .search-icon {
+            position: absolute;
+            top: 50%;
+            left: 1rem;
+            transform: translateY(-50%);
+            color: var(--subtle-text-color);
+            pointer-events: none;
+            transition: color 0.2s ease-in-out;
+        }
+
+        #searchInput:focus + .search-icon {
+            color: var(--primary-color);
+        }
+
+        .file-upload-label {
+            display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color); color: white; border-radius: 0.75rem;
+            cursor: pointer; font-size: 1rem; font-weight: 500;
+            transition: background-color 0.3s ease; white-space: nowrap;
+        }
+        .file-upload-label:hover { background-color: var(--primary-hover-color); }
+        
+        .status-container { text-align: center; padding: 4rem 1rem; }
+        .status-container p { font-size: 1.1rem; color: var(--subtle-text-color); }
+        
+        .loader-container { padding: 4rem 1rem; text-align: center; }
+        .loader {
+            border: 5px solid color-mix(in srgb, var(--primary-color) 20%, transparent);
+            border-top: 5px solid var(--primary-color); border-radius: 50%;
+            width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 1rem auto;
+        }
+        .hidden { display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #excelData { width: 100%; border-collapse: separate; border-spacing: 0; }
+        #excelData th, #excelData td {
+            padding: 1rem 1.25rem; text-align: left; white-space: nowrap;
+            border-bottom: 1px solid var(--border-color);
+        }
+        #excelData thead th {
+            background-color: var(--secondary-bg-color); font-weight: 500; color: var(--subtle-text-color);
+            position: sticky; top: 0; z-index: 10; font-size: 0.9rem; text-transform: uppercase;
+        }
+        #excelData tbody tr { transition: background-color 0.2s ease; }
+        #excelData tbody tr:hover { background-color: color-mix(in srgb, var(--primary-color) 5%, transparent); }
+
+        .general-manager { background-color: var(--gm-bg); }
+        .department-head { background-color: var(--dh-bg); }
+        .general-manager td:first-child { border-left: 4px solid var(--gm-border); }
+        .department-head td:first-child { border-left: 4px solid var(--dh-border); }
+
+        .copy-button {
+            background: none; border: none; cursor: pointer; padding: 0.25rem; border-radius: 50%;
+            vertical-align: middle; opacity: 0; color: var(--subtle-text-color);
+            transition: opacity 0.2s, background-color 0.2s, color 0.2s; margin-right: 0.5rem;
+        }
+        #excelData tr:hover .copy-button { opacity: 0.7; }
+        .copy-button:hover {
+            opacity: 1; background-color: color-mix(in srgb, var(--primary-color) 15%, transparent);
+            color: var(--primary-color);
+        }
+
+        #toast {
+            visibility: hidden; min-width: 250px; background-color: #0f172a; color: #fff; text-align: center;
+            border-radius: 0.75rem; padding: 1rem; position: fixed; z-index: 100; left: 50%; bottom: 30px;
+            transform: translateX(-50%); font-size: 1rem; transition: all 0.5s; opacity: 0;
+            box-shadow: var(--shadow-lg);
+        }
+        #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
+        [data-theme="dark"] #toast { background-color: #e2e8f0; color: #1a202c; }
+        
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: 100;
+            text-align: center;
+            padding: 1rem 0;
+            font-size: 0.9rem;
+            color: var(--subtle-text-color);
+            background-color: var(--secondary-bg-color);
+            border-top: 1px solid var(--border-color);
+            transition: color 0.3s, border-color 0.3s, background-color 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="header-title">
+                <h1>Escalation Matrix</h1>
+                <p>Upload an Excel file to display and search its data.</p>
+            </div>
+            <button class="theme-toggle" id="themeToggle" title="Toggle Theme">
+                <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            </button>
+        </header>
+
+        <div class="card">
+            <div class="toolbar">
+                <div class="filter-controls">
+                    <select id="categoryFilter" disabled>
+                        <option value="All">جميع الفئات</option>
+                        <option value="General Manager">مدير عام</option>
+                        <option value="Department Head">رئيس قطاع</option>
+                    </select>
+                    <div class="search-container">
+                        <input type="text" id="searchInput" placeholder="Search data..." disabled>
+                        <div class="search-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <label for="excelFileInput" class="file-upload-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <span>Upload Excel</span>
+                </label>
+                <input type="file" id="excelFileInput" accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden/>
+            </div>
+
+            <main>
+                <div id="statusContainer" class="status-container">
+                    <p>Upload an Excel file to start viewing the data.</p>
+                </div>
+                
+                <div id="loaderContainer" class="loader-container hidden">
+                    <div class="loader"></div>
+                    <p>Processing data...</p>
+                </div>
+
+                <div id="tableWrapper" class="table-wrapper hidden">
+                    <table id="excelData"></table>
+                    <div id="noResults" class="status-container hidden">
+                        <p>No results match your filter criteria.</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <footer class="footer">
+        <p>Designed and Developed By MZ &copy;2025</p>
+    </footer>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    
+    <script>
+        const fileInput = document.getElementById('excelFileInput');
+        const tableElement = document.getElementById('excelData');
+        const tableWrapper = document.getElementById('tableWrapper');
+        const loaderContainer = document.getElementById('loaderContainer');
+        const statusContainer = document.getElementById('statusContainer');
+        const toast = document.getElementById('toast');
+        const searchInput = document.getElementById('searchInput');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const noResults = document.getElementById('noResults');
+        const themeToggle = document.getElementById('themeToggle');
+
+        fileInput.addEventListener('change', handleFileSelect);
+        searchInput.addEventListener('input', applyFilter);
+        categoryFilter.addEventListener('change', applyFilter);
+        themeToggle.addEventListener('click', toggleTheme);
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.style.zoom = "75%";
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            applyTheme(savedTheme);
+        });
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(newTheme);
+        }
+
+        function handleFileSelect(event) {
+            statusContainer.classList.add('hidden');
+            tableWrapper.classList.add('hidden');
+            loaderContainer.classList.remove('hidden');
+            searchInput.disabled = true;
+            categoryFilter.disabled = true;
+
+            const file = event.target.files[0];
+            if (!file) {
+                loaderContainer.classList.add('hidden');
+                statusContainer.classList.remove('hidden');
+                return;
+            }
+            
+            setTimeout(() => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    processExcelData(data);
+                };
+                reader.readAsArrayBuffer(file);
+            }, 500);
+        }
+
+        function processExcelData(data) {
+            try {
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const html = XLSX.utils.sheet_to_html(worksheet);
+                
+                tableElement.innerHTML = html;
+                enhanceTable(tableElement);
+
+                tableWrapper.classList.remove('hidden');
+                searchInput.disabled = false;
+                categoryFilter.disabled = false;
+                searchInput.value = '';
+                categoryFilter.value = 'All';
+                applyFilter();
+
+            } catch (error) {
+                console.error("Error processing Excel file:", error);
+                statusContainer.querySelector('p').textContent = 'Error: Could not process the file. Please ensure it is a valid, unprotected Excel file.';
+                statusContainer.classList.remove('hidden');
+            } finally {
+                loaderContainer.classList.add('hidden');
+            }
+        }
+
+        function enhanceTable(table) {
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length === 0) return;
+                
+                let rowTextContent = '';
+                let rowCategory = '';
+
+                cells.forEach(cell => {
+                    const cellText = cell.textContent.trim().toLowerCase();
+                    rowTextContent += cellText + ' ';
+                    
+                    if (cellText === 'مدير عام' || cellText === 'general manager') {
+                        row.classList.add('general-manager');
+                        rowCategory = 'General Manager';
+                    }
+                    else if (cellText === 'رئيس قطاع' || cellText === 'department head') {
+                        row.classList.add('department-head');
+                        rowCategory = 'Department Head';
+                    }
+                    
+                    if (cell.textContent.trim().includes('@te.eg')) {
+                        addCopyToCell(cell, cell.textContent.trim());
+                    }
+                });
+                row.dataset.search = rowTextContent;
+                row.dataset.category = rowCategory;
+            });
+        }
+
+        function applyFilter() {
+            const query = searchInput.value.toLowerCase().trim();
+            const category = categoryFilter.value;
+            const rows = tableElement.querySelectorAll('tbody tr');
+            let visibleRows = 0;
+
+            rows.forEach(row => {
+                const searchData = row.dataset.search || '';
+                const rowCategory = row.dataset.category || '';
+
+                const categoryMatch = (category === 'All' || rowCategory === category);
+                const searchMatch = searchData.includes(query);
+
+                if (categoryMatch && searchMatch) {
+                    row.style.display = '';
+                    visibleRows++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (visibleRows === 0) {
+                noResults.classList.remove('hidden');
+            } else {
+                noResults.classList.add('hidden');
+            }
+        }
+
+        function addCopyToCell(cell, emailText) {
+            const copyButton = document.createElement('button');
+            copyButton.className = 'copy-button';
+            copyButton.title = 'Copy Email';
+            copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3z"/></svg>`;
+            
+            copyButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                copyToClipboard(emailText);
+            });
+            
+            cell.prepend(copyButton);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`Copied: ${text}`);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                showToast('Copy failed!');
+            });
+        }
+
+        let toastTimeout;
+        function showToast(message) {
+            clearTimeout(toastTimeout);
+            toast.textContent = message;
+            toast.className = "toast show";
+            toastTimeout = setTimeout(() => {
+                toast.className = toast.className.replace("show", "");
+            }, 3000);
+        }
+    </script>
+
+</body>
+</html>
